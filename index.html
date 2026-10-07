@@ -35,7 +35,7 @@
     ['future','EV-X / SYNTHETIC','SYNTHETIC / FUTURE']
   ];
   var hosts=[document.getElementById('modes'),document.getElementById('driveModes')];
-  function choose(key,name){
+  function choose(key,name){window.driveMode=key;
     document.getElementById('character').innerHTML=name;
     document.getElementById('audioName').innerHTML=name;
     var ms=document.getElementsByClassName('mode'),j;
@@ -56,7 +56,35 @@
     }
   }
   choose('v10','V10 / EXOTIC');
-  if(status){status.innerHTML='<b>●</b> CONTROLS READY — SAFE MODE';}
+  if(status){status.innerHTML='<b>●</b> CONTROLS READY';}
+  var engineBtn=document.getElementById('engineBtn'), audioStatus=document.getElementById('audioStatus');
+  var audioCtx=null, audioSource=null, audioGain=null;
+  function stopEngine(){
+    if(audioSource){try{audioSource.stop(0);}catch(e){} audioSource=null;}
+    if(engineBtn){engineBtn.innerHTML='START ENGINE AUDIO';}
+    if(audioStatus){audioStatus.innerHTML='ENGINE OFF';}
+  }
+  function startSample(url){
+    stopEngine();
+    if(!audioCtx){audioCtx=new (window.AudioContext||window.webkitAudioContext)();}
+    audioCtx.resume();
+    if(audioStatus){audioStatus.innerHTML='LOADING ENGINE';}
+    fetch(url,{cache:'force-cache'}).then(function(r){if(!r.ok)throw new Error('audio');return r.arrayBuffer();})
+    .then(function(buf){return audioCtx.decodeAudioData(buf);})
+    .then(function(decoded){
+      audioSource=audioCtx.createBufferSource();audioGain=audioCtx.createGain();
+      audioSource.buffer=decoded;audioSource.loop=true;audioSource.loopStart=.08;audioSource.loopEnd=Math.max(.1,decoded.duration-.08);
+      audioGain.gain.value=.72;audioSource.connect(audioGain);audioGain.connect(audioCtx.destination);audioSource.start(0);
+      if(engineBtn){engineBtn.innerHTML='STOP ENGINE AUDIO';}
+      if(audioStatus){audioStatus.innerHTML='ENGINE ACTIVE — GAPLESS BUFFER';}
+    }).catch(function(){if(audioStatus){audioStatus.innerHTML='AUDIO LOAD ERROR';}});
+  }
+  if(engineBtn){engineBtn.onclick=function(){
+    if(audioSource){stopEngine();return;}
+    var m=window.driveMode||'v10';
+    if(m==='diesel'){startSample('./assets/diesel_idle.mp3');}
+    else{startSample('./assets/exotic.mp3');}
+  };}
   window.addEventListener('error',function(e){if(status){status.innerHTML='<b>●</b> CONTROLS READY / ENGINE ERROR';}});
 })();
 </script></body></html>
