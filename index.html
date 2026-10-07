@@ -180,7 +180,7 @@
       mph+=simUp?1.15:-1.35;
       if(mph>=92){mph=92;simUp=false;}
       if(mph<=0){mph=0;simUp=true;}
-      load=simUp?.88:.04;
+      load=simUp ? .88 : .04;
       gear=gearFor(mph);rpm=rpmFor(mph,gear);render();
     },100);
   }
