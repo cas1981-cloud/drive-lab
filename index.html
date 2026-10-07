@@ -57,34 +57,57 @@
   }
   choose('v10','V10 / EXOTIC');
   if(status){status.innerHTML='<b>●</b> CONTROLS READY';}
-  var engineBtn=document.getElementById('engineBtn'), audioStatus=document.getElementById('audioStatus');
-  var audioCtx=null, audioSource=null, audioGain=null;
-  function stopEngine(){
-    if(audioSource){try{audioSource.stop(0);}catch(e){} audioSource=null;}
-    if(engineBtn){engineBtn.innerHTML='START ENGINE AUDIO';}
-    if(audioStatus){audioStatus.innerHTML='ENGINE OFF';}
-  }
-  function startSample(url){
-    stopEngine();
-    if(!audioCtx){audioCtx=new (window.AudioContext||window.webkitAudioContext)();}
-    audioCtx.resume();
-    if(audioStatus){audioStatus.innerHTML='LOADING ENGINE';}
-    fetch(url,{cache:'force-cache'}).then(function(r){if(!r.ok)throw new Error('audio');return r.arrayBuffer();})
-    .then(function(buf){return audioCtx.decodeAudioData(buf);})
-    .then(function(decoded){
-      audioSource=audioCtx.createBufferSource();audioGain=audioCtx.createGain();
-      audioSource.buffer=decoded;audioSource.loop=true;audioSource.loopStart=.08;audioSource.loopEnd=Math.max(.1,decoded.duration-.08);
-      audioGain.gain.value=.72;audioSource.connect(audioGain);audioGain.connect(audioCtx.destination);audioSource.start(0);
-      if(engineBtn){engineBtn.innerHTML='STOP ENGINE AUDIO';}
-      if(audioStatus){audioStatus.innerHTML='ENGINE ACTIVE — GAPLESS BUFFER';}
-    }).catch(function(){if(audioStatus){audioStatus.innerHTML='AUDIO LOAD ERROR';}});
-  }
-  if(engineBtn){engineBtn.onclick=function(){
-    if(audioSource){stopEngine();return;}
-    var m=window.driveMode||'v10';
-    if(m==='diesel'){startSample('./assets/diesel_idle.mp3');}
-    else{startSample('./assets/exotic.mp3');}
-  };}
   window.addEventListener('error',function(e){if(status){status.innerHTML='<b>●</b> CONTROLS READY / ENGINE ERROR';}});
+})();
+</script><script>
+(function(){
+  var btn=document.getElementById('engineBtn');
+  var stat=document.getElementById('audioStatus');
+  var ctx=null,src=null,gain=null;
+  function say(t){if(stat){stat.innerHTML=t;}}
+  function stop(){
+    if(src){try{src.stop(0);}catch(e){}src=null;}
+    if(btn){btn.innerHTML='START ENGINE AUDIO';}
+    say('ENGINE OFF');
+  }
+  function start(){
+    say('TAP RECEIVED');
+    if(!window.AudioContext&&!window.webkitAudioContext){say('WEB AUDIO NOT SUPPORTED');return;}
+    try{
+      if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();}
+      ctx.resume();
+    }catch(e){say('AUDIO CONTEXT ERROR');return;}
+    var mode=window.driveMode||'v10';
+    var url=mode==='diesel'?'./assets/diesel_idle.mp3':'./assets/exotic.mp3';
+    say('LOADING '+(mode==='diesel'?'DIESEL':'V10'));
+    fetch(url,{cache:'force-cache'}).then(function(r){
+      if(!r.ok){throw new Error('HTTP '+r.status);}
+      return r.arrayBuffer();
+    }).then(function(ab){
+      return new Promise(function(resolve,reject){
+        var done=false;
+        function ok(b){if(!done){done=true;resolve(b);}}
+        function bad(e){if(!done){done=true;reject(e);}}
+        try{
+          var p=ctx.decodeAudioData(ab,ok,bad);
+          if(p&&typeof p.then==='function'){p.then(ok).catch(bad);}
+        }catch(e){bad(e);}
+      });
+    }).then(function(buffer){
+      src=ctx.createBufferSource();gain=ctx.createGain();
+      src.buffer=buffer;src.loop=true;
+      var pad=Math.min(.06,buffer.duration*.02);
+      src.loopStart=pad;src.loopEnd=Math.max(pad+.1,buffer.duration-pad);
+      gain.gain.value=.72;src.connect(gain);gain.connect(ctx.destination);
+      src.start(0,pad);
+      btn.innerHTML='STOP ENGINE AUDIO';
+      say('ENGINE ACTIVE — '+buffer.duration.toFixed(1)+' SEC BUFFER');
+    }).catch(function(e){say('AUDIO ERROR — '+(e&&e.message?e.message:'LOAD FAILED'));});
+  }
+  if(btn){
+    btn.onclick=function(){
+      if(src){stop();}else{start();}
+    };
+  }else{say('START BUTTON NOT FOUND');}
 })();
 </script></body></html>
