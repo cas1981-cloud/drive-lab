@@ -210,7 +210,7 @@
   simUp=true;mph=0;target=0;gear=1;throttle=.82;status('PARKED SIM ACTIVE');simBtn.innerHTML='STOP PARKED SIM';
   simTimer=setInterval(function(){
    var prev=mph;mph+=simUp?(0.45+throttle*.72):-1.05;if(mph>=95){mph=95;simUp=false;}if(mph<=0){mph=0;simUp=true;gear=1;}
-   filteredAcc=(mph-prev)/.1;throttle=simUp ? .86 : 0;load+=(throttle-load)*.38;var c=C(),road=roadRpm(mph,gear),wanted=Math.max(road,c.idle+(c.max-c.idle)*throttle*.82);rpm+=(Math.min(c.max,wanted)-rpm)*.34;chooseGear();render();
+   filteredAcc=(mph-prev)/.1;throttle=simUp ? .86 : 0;load+=(throttle-load)*.38;var c=C();if(simUp){var simGear=mph<18?1:mph<34?2:mph<51?3:mph<68?4:mph<83?5:6;if(simGear!==gear){gear=simGear;lastShift=Date.now();}var floors=[0,0,.26,.30,.33,.35,.36],span=[0,.88,.70,.66,.62,.58,.54],starts=[0,0,18,34,51,68,83],ends=[0,18,34,51,68,83,95],gp=Math.max(0,Math.min(1,(mph-starts[gear])/Math.max(1,ends[gear]-starts[gear])));rpm=c.idle+(c.max-c.idle)*Math.min(.94,floors[gear]+span[gear]*gp);}else{var downGear=mph>83?6:mph>68?5:mph>51?4:mph>34?3:mph>18?2:1;if(downGear!==gear){gear=downGear;lastShift=Date.now();}rpm+=(Math.max(c.idle,roadRpm(mph,gear))-rpm)*.24;}render();
   },100);
  }
  if(gpsBtn)gpsBtn.onclick=liveGPS;if(simBtn)simBtn.onclick=sim;status('GPS THROTTLE MODEL READY');render();
