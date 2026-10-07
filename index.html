@@ -3,7 +3,7 @@
 @media(max-width:900px){.drive{grid-template-columns:1fr}.side{display:none}.cluster{padding-bottom:92px}.driveModes{display:flex;position:absolute;z-index:5;left:12px;right:12px;bottom:8px;gap:5px}.driveModes .mode{display:flex;align-items:center;justify-content:center;flex:1;height:54px;padding:4px;border:1px solid #292d33;border-left:1px solid #292d33;border-bottom:2px solid transparent;background:#0c0e11e8;text-align:center;border-radius:8px}.driveModes .mode.on{border-color:#4a2225;border-bottom-color:var(--r);background:#1a0d0f}.driveModes .mode strong{font-size:9px;line-height:1.15}.driveModes .mode span{display:none}.side{padding:9px}.mode{height:36px}.mode strong{font-size:11px}nav button{min-width:85px}.fx{grid-template-columns:repeat(2,1fr)}}@media(max-height:650px){.app{grid-template-rows:38px minmax(0,1fr) 50px}.mode{height:33px}.speed{font-size:78px}.stats{margin-top:10px}.side{padding-top:6px}}
 </style></head><body><div class="app"><header><div class="brand">DRIVE LAB</div><div class="status" id="appStatus"><b>●</b> LOADING CONTROLS</div></header><main>
 <section class="page on" id="drive"><div class="drive"><div class="cluster"><div class="arc" id="arc"></div><div class="driveModes" id="driveModes"></div><div class="center"><div class="character" id="character">V10 / EXOTIC</div><div class="speed" id="speed">0</div><div class="mph">MPH</div><div class="stats"><div><strong id="gear">1</strong><span class="small">GEAR</span></div><div><strong id="load">0</strong><span class="small">POWER %</span></div></div><div class="power"><b id="rpm">900</b> <span class="small">RPM</span></div></div></div><aside class="side"><div class="ey">NEXT</div><div class="next"><span class="small">TEST BUILD</span><b>Tesla road test</b><span class="muted">GPS + DriveFX</span></div><div class="ey" style="margin-top:12px">DRIVE CHARACTER</div><div id="modes"></div></aside></div></section>
-<section class="page" id="audio"><div class="content"><div class="line"></div><div class="title">Audio environment.</div><div class="audioGrid"><div class="card"><div class="ey">ACTIVE CHARACTER</div><h2 id="audioName">V10 / EXOTIC</h2><div class="wave" id="wave"></div><button class="engineBtn hot" id="engineBtn">START ENGINE AUDIO</button></div><div class="card"><div class="ey">AUDIO STATUS</div><p class="muted">V10 and Diesel HD use real recorded engine samples. V8, Jet and EV-X are generated live. Audio starts only after you tap so Tesla's browser allows playback.</p><p id="audioStatus">ENGINE OFF</p></div></div></div></section>
+<section class="page" id="audio"><div class="content"><div class="line"></div><div class="title">Audio environment.</div><div class="audioGrid"><div class="card"><div class="ey">ACTIVE CHARACTER</div><h2 id="audioName">V10 / EXOTIC</h2><div class="wave" id="wave"></div><button class="engineBtn hot" id="engineBtn">START ENGINE AUDIO</button></div><div class="card"><div class="ey">AUDIO STATUS</div><p class="muted">Drive Lab now synthesizes sound from LIVE RPM, gear and load. Shifts happen only when the virtual transmission shifts — no prerecorded six-gear run.</p><p id="audioStatus">ENGINE OFF</p></div></div></div></section>
 <section class="page" id="today"><div class="content"><div class="line"></div><div class="title">Today.</div><div class="card"><div class="ey">FAST MODE</div><h2>Calendar intentionally disconnected.</h2><p class="muted">The old Apps Script calendar connection is not allowed to block Drive Lab anymore. We'll reconnect calendar after the Tesla road test.</p></div></div></section>
 <section class="page" id="more"><div class="content"><div class="line"></div><div class="title">Control center.</div><div class="fx"><button onclick="fx(70,900)">AFTERBURNER</button><button onclick="fx(500,2500)">TURBO</button><button onclick="fx(100,1800)">WARP</button><button onclick="fx(180,500)">AIR HORN</button></div><div class="settings"><div class="card"><b>GPS drivetrain</b><p class="muted">Uses browser road speed and smooths between GPS updates.</p><button class="action" id="gpsBtn">ENABLE LIVE GPS</button><p id="gpsStatus" class="muted">GPS OFF</p></div><div class="card"><b>Drive simulation</b><p class="muted">Prove speed, gears, RPM and engine response while parked.</p><button class="action" id="simBtn">START PARKED SIM</button></div></div></div></section>
 </main><nav><button class="on" type="button" onclick="showPage('drive',this)">DRIVE</button><button type="button" onclick="showPage('audio',this)">AUDIO</button><button type="button" onclick="showPage('today',this)">TODAY</button><button type="button" onclick="showPage('more',this)">MORE</button></nav></div>
@@ -28,9 +28,9 @@
   }
   window.showPage=showPage;
   var defs=[
-    ['v10','V10 / EXOTIC','REAL SAMPLE / 8,500 RPM'],
-    ['muscle','V8 / MUSCLE','DEEP / MECHANICAL'],
-    ['diesel','DIESEL HD / TURBO','TRUCK / 2,600 RPM'],
+    ['v10','V10 / EXOTIC','LIVE V10 / 8,500 RPM'],
+    ['muscle','V8 / MUSCLE','CROSS-PLANE / 6,500 RPM'],
+    ['diesel','DIESEL HD / TURBO','LOW REDLINE / 2,600 RPM'],
     ['jet','JET / AFTERBURNER','TURBINE / THRUST'],
     ['future','EV-X / SYNTHETIC','SYNTHETIC / FUTURE']
   ];
@@ -61,55 +61,76 @@
 })();
 </script><script>
 (function(){
-  var btn=document.getElementById('engineBtn');
-  var stat=document.getElementById('audioStatus');
-  var ctx=null,src=null,gain=null; window.driveAudio={};
-  function say(t){if(stat){stat.innerHTML=t;}}
+  var btn=document.getElementById('engineBtn'),stat=document.getElementById('audioStatus');
+  var Ctx=window.AudioContext||window.webkitAudioContext,ctx=null,master=null,engine=null,noiseBuf=null,running=false;
+  function say(t){if(stat)stat.innerHTML=t;}
+  function makeNoise(){
+    var b=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate),d=b.getChannelData(0);
+    for(var i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    return b;
+  }
+  function osc(type,f,g,dest){
+    var o=ctx.createOscillator(),a=ctx.createGain();o.type=type;o.frequency.value=f;a.gain.value=g;o.connect(a);a.connect(dest);o.start();return {o:o,g:a};
+  }
+  function build(){
+    master=ctx.createGain();master.gain.value=.0001;master.connect(ctx.destination);
+    var bus=ctx.createGain(),filter=ctx.createBiquadFilter(),comp=ctx.createDynamicsCompressor();
+    filter.type='lowpass';filter.frequency.value=2200;filter.Q.value=.7;
+    bus.connect(filter);filter.connect(comp);comp.connect(master);
+    engine={bus:bus,filter:filter,parts:[],noise:null,noiseGain:null,lastGear:1,shiftUntil:0,mode:''};
+    noiseBuf=noiseBuf||makeNoise();
+    var ns=ctx.createBufferSource(),ng=ctx.createGain();ns.buffer=noiseBuf;ns.loop=true;ng.gain.value=.015;ns.connect(ng);ng.connect(bus);ns.start();
+    engine.noise=ns;engine.noiseGain=ng;
+    for(var i=0;i<6;i++)engine.parts.push(osc('sine',80,0,bus));
+  }
   function stop(){
-    if(src){try{src.stop(0);}catch(e){}src=null;} window.driveAudio.src=null;window.driveAudio.gain=null;
-    if(btn){btn.innerHTML='START ENGINE AUDIO';}
-    say('ENGINE OFF');
+    running=false;
+    if(master)master.gain.setTargetAtTime(.0001,ctx.currentTime,.03);
+    if(engine){
+      for(var i=0;i<engine.parts.length;i++){try{engine.parts[i].o.stop(ctx.currentTime+.08);}catch(e){}}
+      try{engine.noise.stop(ctx.currentTime+.08);}catch(e){}
+    }
+    engine=null;btn.innerHTML='START ENGINE AUDIO';say('ENGINE OFF');
   }
   function start(){
-    say('TAP RECEIVED');
-    if(!window.AudioContext&&!window.webkitAudioContext){say('WEB AUDIO NOT SUPPORTED');return;}
-    try{
-      if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();}
-      ctx.resume();
-    }catch(e){say('AUDIO CONTEXT ERROR');return;}
-    var mode=window.driveMode||'v10';
-    var url=mode==='diesel'?'./assets/diesel_idle.mp3':'./assets/exotic.mp3';
-    say('LOADING '+(mode==='diesel'?'DIESEL':'V10'));
-    fetch(url,{cache:'force-cache'}).then(function(r){
-      if(!r.ok){throw new Error('HTTP '+r.status);}
-      return r.arrayBuffer();
-    }).then(function(ab){
-      return new Promise(function(resolve,reject){
-        var done=false;
-        function ok(b){if(!done){done=true;resolve(b);}}
-        function bad(e){if(!done){done=true;reject(e);}}
-        try{
-          var p=ctx.decodeAudioData(ab,ok,bad);
-          if(p&&typeof p.then==='function'){p.then(ok).catch(bad);}
-        }catch(e){bad(e);}
-      });
-    }).then(function(buffer){
-      src=ctx.createBufferSource();gain=ctx.createGain();
-      src.buffer=buffer;src.loop=true;
-      var pad=Math.min(.06,buffer.duration*.02);
-      src.loopStart=pad;src.loopEnd=Math.max(pad+.1,buffer.duration-pad);
-      gain.gain.value=.72;src.connect(gain);gain.connect(ctx.destination);
-      src.start(0,pad);
-      btn.innerHTML='STOP ENGINE AUDIO';
-      say('ENGINE ACTIVE — '+buffer.duration.toFixed(1)+' SEC BUFFER');
-      window.driveAudio.ctx=ctx;window.driveAudio.src=src;window.driveAudio.gain=gain;window.driveAudio.baseRate=1;
-    }).catch(function(e){say('AUDIO ERROR — '+(e&&e.message?e.message:'LOAD FAILED'));});
+    if(!Ctx){say('WEB AUDIO NOT SUPPORTED');return;}
+    try{ctx=ctx||new Ctx();ctx.resume();build();running=true;master.gain.setTargetAtTime(.72,ctx.currentTime,.08);
+      btn.innerHTML='STOP ENGINE AUDIO';say('LIVE DRIVETRAIN AUDIO — '+(window.driveMode||'v10').toUpperCase());
+    }catch(e){say('AUDIO ERROR — '+e.message);}
   }
-  if(btn){
-    btn.onclick=function(){
-      if(src){stop();}else{start();}
-    };
-  }else{say('START BUTTON NOT FOUND');}
+  function thump(strength){
+    if(!ctx||!master)return;
+    var o=ctx.createOscillator(),g=ctx.createGain(),f=ctx.createBiquadFilter();
+    o.type='sine';o.frequency.setValueAtTime(72,ctx.currentTime);o.frequency.exponentialRampToValueAtTime(38,ctx.currentTime+.11);
+    f.type='lowpass';f.frequency.value=180;g.gain.setValueAtTime(.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.16*strength+.02,ctx.currentTime+.008);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+.14);
+    o.connect(f);f.connect(g);g.connect(master);o.start();o.stop(ctx.currentTime+.16);
+  }
+  function update(st){
+    if(!running||!engine||!ctx)return;
+    var m=st.mode||'v10',rpm=Math.max(400,st.rpm||800),load=Math.max(0,Math.min(1,st.load||0)),gear=st.gear||1,now=ctx.currentTime;
+    if(gear!==engine.lastGear){
+      engine.shiftUntil=now+.15;thump(.45+load*.55);engine.lastGear=gear;
+    }
+    var shift=now<engine.shiftUntil,base,ratios,gains,types,cutoff,noise;
+    if(m==='muscle'){base=rpm/60*4;ratios=[.5,1,1.5,2,2.5,3];gains=[.16,.23,.11,.08,.045,.025];types=['sine','sawtooth','sine','triangle','sine','sine'];cutoff=850+load*1900;noise=.012+load*.025;}
+    else if(m==='diesel'){base=rpm/60*3;ratios=[.5,1,1.5,2,2.5,3];gains=[.22,.25,.13,.07,.035,.018];types=['square','sine','triangle','sine','sine','sine'];cutoff=620+load*1050;noise=.035+load*.055;}
+    else if(m==='jet'){base=70+(rpm/9000)*430;ratios=[1,1.5,2,3,4,6];gains=[.06,.08,.12,.08,.05,.03];types=['sine','sine','sine','sine','sine','sine'];cutoff=1800+load*6500;noise=.06+load*.16;}
+    else if(m==='future'){base=95+(rpm/10000)*780;ratios=[1,2,3,4,5,7];gains=[.10,.07,.045,.03,.018,.012];types=['sine','sine','triangle','sine','sine','sine'];cutoff=2600+load*6500;noise=.008+load*.018;}
+    else{base=rpm/60*5;ratios=[.5,1,1.5,2,2.5,3];gains=[.08,.21,.14,.10,.065,.035];types=['sine','sawtooth','sine','triangle','sine','sine'];cutoff=1200+load*3600;noise=.015+load*.04;}
+    for(var i=0;i<engine.parts.length;i++){
+      var p=engine.parts[i],freq=Math.max(25,Math.min(8000,base*ratios[i]));
+      p.o.type=types[i];p.o.frequency.setTargetAtTime(freq,now,.025);
+      p.g.gain.setTargetAtTime(gains[i]*(shift ? .12 :(.35+load*.75)),now,.025);
+    }
+    engine.filter.frequency.setTargetAtTime(cutoff,now,.04);
+    engine.noiseGain.gain.setTargetAtTime(noise*(shift ? .2 :1),now,.04);
+    var level=(m==='future' ? .42 :.58)+load*.25;
+    master.gain.setTargetAtTime(shift?level*.28:level,now,.025);
+    engine.mode=m;
+    say('LIVE '+m.toUpperCase()+' • '+Math.round(rpm)+' RPM • GEAR '+gear+' • LOAD '+Math.round(load*100)+'%');
+  }
+  btn.onclick=function(){if(running)stop();else start();};
+  window.driveAudio={update:update,isRunning:function(){return running;},stop:stop};
 })();
 </script><script>
 (function(){
@@ -126,13 +147,8 @@
     return Math.min(maxRpm(),idle()+v*mult*(.70+.30*load));
   }
   function audio(){
-    var a=window.driveAudio||{},m=window.driveMode||'v10';
-    if(!a.src)return;
-    var n=Math.max(0,Math.min(1,(rpm-idle())/(maxRpm()-idle())));
-    var rate;
-    if(m==='diesel') rate=.78+n*.55;
-    else rate=.78+n*.82;
-    try{a.src.playbackRate.value=rate;if(a.gain)a.gain.gain.value=.38+load*.42;}catch(e){}
+    var a=window.driveAudio||{};
+    if(a.update){a.update({mode:window.driveMode||'v10',rpm:rpm,gear:gear,load:load,mph:mph});}
   }
   function render(){
     if(speedEl)speedEl.innerHTML=Math.round(mph);
