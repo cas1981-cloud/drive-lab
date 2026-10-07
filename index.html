@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Drive Lab</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;background:#050607;color:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;height:100%;overflow:hidden}
+body{background:radial-gradient(circle at 45% 40%,#191919 0,#090a0b 45%,#030405 100%)}
+.app{height:100dvh;min-height:100vh;display:grid;grid-template-rows:58px 1fr 58px;padding:0 22px}
+header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #242424}
+.brand{font-weight:800;letter-spacing:.22em;font-size:16px}.brand i{display:inline-block;width:34px;height:3px;background:#e21b23;margin-left:10px;vertical-align:middle;box-shadow:0 0 16px #e21b23}
+.status{font-size:11px;letter-spacing:.14em;color:#8b8e91}.status b{color:#46d27c}
+main{min-height:0;display:grid;grid-template-columns:1fr 270px;gap:20px;align-items:center}
+.cluster{position:relative;height:min(67vh,590px);min-height:360px;display:flex;align-items:center;justify-content:center}
+svg{position:absolute;width:min(72vw,780px);height:100%;overflow:visible}.track{fill:none;stroke:#292b2e;stroke-width:10;stroke-linecap:round}.hot{fill:none;stroke:#d61f26;stroke-width:11;stroke-linecap:round;filter:drop-shadow(0 0 8px #b20d15)}
+.center{text-align:center;z-index:2;margin-top:45px}.speed{font-size:clamp(84px,11vw,160px);font-weight:200;line-height:.82;letter-spacing:-.06em}.mph{font-size:13px;letter-spacing:.3em;color:#92969a;margin-top:15px}.gear{margin-top:20px;font-size:18px}.gear strong{font-size:42px;color:#fff;margin-left:12px}.rpm{font-size:12px;color:#8b8e91;letter-spacing:.14em}
+.modes{border-left:1px solid #292929;padding-left:25px}.label{font-size:10px;color:#666;letter-spacing:.24em;margin-bottom:16px}
+.mode{padding:15px 12px;margin:3px 0;border-left:2px solid transparent;cursor:pointer}.mode strong{display:block;font-size:17px;letter-spacing:.05em}.mode span{font-size:10px;color:#707479;letter-spacing:.12em}.mode.active{border-left-color:#e21b23;background:linear-gradient(90deg,rgba(226,27,35,.14),transparent)}.mode.active strong{color:#fff;text-shadow:0 0 18px rgba(226,27,35,.45)}
+.power{position:absolute;bottom:12px;width:58%;height:4px;background:#25272a}.power:after{content:"";display:block;width:23%;height:100%;background:#d51d25;box-shadow:0 0 10px #d51d25}
+nav{border-top:1px solid #242424;display:flex;align-items:center;justify-content:center;gap:70px;font-size:11px;letter-spacing:.18em;color:#65696d}nav .on{color:#fff;position:relative}nav .on:before{content:"";position:absolute;top:-20px;left:25%;width:50%;height:2px;background:#e21b23}
+@media(max-width:850px){.app{padding:0 12px;grid-template-rows:48px 1fr 48px}main{grid-template-columns:1fr 190px;gap:8px}.cluster{height:calc(100dvh - 100px);min-height:280px}.speed{font-size:80px}.modes{padding-left:12px}.mode{padding:9px 7px}.mode strong{font-size:13px}.mode span{font-size:8px}nav{gap:28px}}
+</style></head>
+<body><div class="app">
+<header><div class="brand">DRIVE LAB<i></i></div><div class="status"><b>●</b> READY</div></header>
+<main>
+<section class="cluster">
+<svg viewBox="0 0 800 500"><path class="track" d="M105 355 A300 300 0 0 1 695 355"/><path class="hot" d="M105 355 A300 300 0 0 1 220 145"/></svg>
+<div class="center"><div class="rpm">RPM × 1000</div><div class="speed" id="speed">0</div><div class="mph">MPH</div><div class="gear">GEAR <strong id="gear">P</strong></div></div><div class="power"></div>
+</section>
+<aside class="modes"><div class="label">DRIVE CHARACTER</div>
+<div class="mode active"><strong>V10 / EXOTIC</strong><span>HIGH RPM / NATURAL</span></div>
+<div class="mode"><strong>V8 / MUSCLE</strong><span>HEAVY / MECHANICAL</span></div>
+<div class="mode"><strong>DIESEL HD</strong><span>TRUCK / TURBO</span></div>
+<div class="mode"><strong>JET</strong><span>AFTERBURNER</span></div>
+<div class="mode"><strong>EV-X</strong><span>SYNTHETIC</span></div>
+</aside>
+</main>
+<nav><span class="on">DRIVE</span><span>AUDIO</span><span>TODAY</span><span>MORE</span></nav>
+</div>
+<script>
+document.querySelectorAll('.mode').forEach(m=>m.onclick=()=>{document.querySelectorAll('.mode').forEach(x=>x.classList.remove('active'));m.classList.add('active')});
+if(navigator.geolocation) navigator.geolocation.watchPosition(p=>{let s=Math.max(0,(p.coords.speed||0)*2.23694);document.getElementById('speed').textContent=Math.round(s);document.getElementById('gear').textContent=s<1?'P':s<15?'1':s<28?'2':s<43?'3':s<60?'4':s<78?'5':'6'},()=>{},{enableHighAccuracy:true,maximumAge:500,timeout:8000});
+</script></body></html>
