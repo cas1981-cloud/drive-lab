@@ -7,22 +7,56 @@
 <section class="page" id="today"><div class="content"><div class="line"></div><div class="title">Today.</div><div class="card"><div class="ey">FAST MODE</div><h2>Calendar intentionally disconnected.</h2><p class="muted">The old Apps Script calendar connection is not allowed to block Drive Lab anymore. We'll reconnect calendar after the Tesla road test.</p></div></div></section>
 <section class="page" id="more"><div class="content"><div class="line"></div><div class="title">Control center.</div><div class="fx"><button onclick="fx(70,900)">AFTERBURNER</button><button onclick="fx(500,2500)">TURBO</button><button onclick="fx(100,1800)">WARP</button><button onclick="fx(180,500)">AIR HORN</button></div><div class="settings"><div class="card"><b>GPS drivetrain</b><p class="muted">Uses browser road speed and smooths between GPS updates.</p><button class="action" id="gpsBtn">ENABLE GPS</button></div><div class="card"><b>Drive simulation</b><p class="muted">Test RPM, gears and audio while parked.</p><button class="action" id="simBtn">START SIM</button></div></div></div></section>
 </main><nav><button class="on" type="button" onclick="showPage('drive',this)">DRIVE</button><button type="button" onclick="showPage('audio',this)">AUDIO</button><button type="button" onclick="showPage('today',this)">TODAY</button><button type="button" onclick="showPage('more',this)">MORE</button></nav></div>
-<script>function showPage(id,btn){var pages=document.getElementsByClassName('page');for(var i=0;i<pages.length;i++){pages[i].style.display='none';pages[i].classList.remove('on')}var p=document.getElementById(id);if(p){p.style.display='block';p.classList.add('on')}var bs=document.querySelectorAll('nav button');for(var j=0;j<bs.length;j++){bs[j].classList.remove('on')}if(btn)btn.classList.add('on')}
-const el=id=>document.getElementById(id);
-const appStatus=el('appStatus'),character=el('character'),audioName=el('audioName'),speed=el('speed'),gear=el('gear'),load=el('load'),rpm=el('rpm'),arc=el('arc'),wave=el('wave'),engineBtn=el('engineBtn'),audioStatus=el('audioStatus'),gpsBtn=el('gpsBtn'),simBtn=el('simBtn'),driveModes=el('driveModes');
-
-const defs={v10:['V10 / EXOTIC',8500],muscle:['V8 / MUSCLE',6500],diesel:['DIESEL HD / TURBO',2600],jet:['JET / AFTERBURNER',9000],future:['EV-X / SYNTHETIC',10000]};let mode=localStorage.dlmode||'v10',S={speed:0,rpm:900,gear:1,load:0},target=0,last=null,sim=null,ctx=null,nodes=[],media=[];
-const modes=el('modes');Object.keys(defs).forEach(k=>{const label=(k==='diesel'?'TRUCK / 2,600 RPM':k==='v10'?'REAL SAMPLE / 8,500 RPM':k==='muscle'?'DEEP / MECHANICAL':k==='jet'?'TURBINE / THRUST':'SYNTHETIC / FUTURE');[modes,driveModes].forEach(host=>{let b=document.createElement('button');b.className='mode';b.dataset.k=k;b.innerHTML='<strong>'+defs[k][0]+'</strong><span>'+label+'</span>';b.addEventListener('click',()=>select(k));host.appendChild(b)})});function select(k){mode=k;localStorage.dlmode=k;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('on',x.dataset.k===k));character.textContent=audioName.textContent=defs[k][0];stopAudio();draw()}select(mode);
-
-for(let i=0;i<28;i++){let e=document.createElement('i');wave.appendChild(e)}
-appStatus.innerHTML='<b>●</b> CONTROLS READY';
-function gearFor(s){return s<15?1:s<30?2:s<47?3:s<66?4:s<88?5:6}function rpmFor(s,g){let max=defs[mode][1],idle=mode==='diesel'?680:850;return Math.min(max,idle+s*([0,190,125,90,68,53,43][g])*(.72+.28*S.load))}
-function draw(){speed.textContent=Math.round(S.speed);gear.textContent=S.gear;load.textContent=Math.round(S.load*100);rpm.textContent=Math.round(S.rpm);let idle=mode==='diesel'?680:850,max=defs[mode][1],pct=Math.max(0,Math.min(1,(S.rpm-idle)/(max-idle)));arc.style.background='conic-gradient(from 135deg,var(--r) 0 '+(pct*270)+'deg,#282b30 '+(pct*270)+'deg 270deg,transparent 270deg)';document.querySelectorAll('.wave i').forEach((x,i)=>x.style.height=(12+Math.abs(Math.sin(i*.72+S.rpm/500))*70*Math.max(.15,S.load))+'px');updateAudio()}
-function gps(){if(!navigator.geolocation){audioStatus.textContent='GPS NOT AVAILABLE';return}audioStatus.textContent='REQUESTING GPS';navigator.geolocation.watchPosition(p=>{let mph=Math.max(0,(p.coords.speed||0)*2.23694),now=Date.now();S.load=last?Math.max(.03,Math.min(1,.16+(mph-last.mph)/Math.max(.5,(now-last.t)/1000)/8)):.1;last={mph,t:now};target=mph;audioStatus.textContent='GPS ACTIVE'},e=>audioStatus.textContent='GPS: '+e.message,{enableHighAccuracy:true,maximumAge:300,timeout:10000})}gpsBtn.onclick=gps;
-setInterval(()=>{if(sim)return;S.speed+=(target-S.speed)*.18;S.gear=gearFor(S.speed);S.rpm+=(rpmFor(S.speed,S.gear)-S.rpm)*.2;draw()},100);
-simBtn.onclick=()=>{if(sim){clearInterval(sim);sim=null;simBtn.textContent='START SIM';S.speed=0;S.load=0;draw();return}startAudio();let up=true;simBtn.textContent='STOP SIM';sim=setInterval(()=>{S.load=up ? .9 : .08;S.speed+=up?1.4:-1;if(S.speed>95)up=false;if(S.speed<1)up=true;S.gear=gearFor(S.speed);S.rpm=rpmFor(S.speed,S.gear);draw()},90)};
-function ac(){if(!ctx){ctx=new(window.AudioContext||window.webkitAudioContext)();let g=ctx.createGain();g.gain.value=.18;g.connect(ctx.destination);ctx.master=g}ctx.resume()}function stopAudio(){nodes.forEach(n=>{try{n.stop()}catch(e){}});nodes=[];media.forEach(a=>{try{a.pause()}catch(e){}});media=[];engineBtn.textContent='START ENGINE AUDIO';audioStatus.textContent='ENGINE OFF'}
-async function startAudio(){ac();stopAudio();engineBtn.textContent='STOP ENGINE AUDIO';audioStatus.textContent='ENGINE ACTIVE';if(mode==='v10'){sample('./assets/exotic.mp3',.65);return}if(mode==='diesel'){sample('./assets/diesel_idle.mp3',.55);sample('./assets/diesel_rev.mp3',.28);return}let base=mode==='muscle'?42:mode==='jet'?80:105;[1,2.02,3.98].forEach((m,i)=>{let o=ctx.createOscillator(),g=ctx.createGain();o.type=i?'sine':'sawtooth';g.gain.value=.18/(i+1);o.connect(g).connect(ctx.master);o.start();o.m=m;nodes.push(o)});updateAudio()}
-function sample(src,v){let a=new Audio(src);a.loop=true;a.preload='auto';a.volume=v;a.play().catch(()=>audioStatus.textContent='TAP AGAIN FOR AUDIO');media.push(a)}function updateAudio(){if(nodes.length){let base=(mode==='muscle'?38:mode==='jet'?75:100)*(1+S.rpm/3500);nodes.forEach(o=>o.frequency.setTargetAtTime(base*o.m,ctx.currentTime,.08))}media.forEach((a,i)=>{a.playbackRate=Math.max(.72,Math.min(1.65,(mode==='diesel'?S.rpm/(i?1700:800):.68+S.rpm/8000)))})}
-engineBtn.onclick=()=>media.length||nodes.length?stopAudio():startAudio();function fx(a,b){ac();let o=ctx.createOscillator(),g=ctx.createGain();o.type='sawtooth';o.frequency.value=a;o.frequency.exponentialRampToValueAtTime(b,ctx.currentTime+.7);g.gain.value=.12;g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.8);o.connect(g).connect(ctx.master);o.start();o.stop(ctx.currentTime+.8)}draw();
+<script>
+(function(){
+  var status=document.getElementById('appStatus');
+  function showPage(id){
+    var pages=document.getElementsByClassName('page'), i;
+    for(i=0;i<pages.length;i++){pages[i].style.display='none';pages[i].className=pages[i].className.replace(/\bon\b/g,'');}
+    var page=document.getElementById(id);
+    if(page){page.style.display='block';page.className+=' on';}
+    var buttons=document.querySelectorAll('nav button');
+    for(i=0;i<buttons.length;i++){buttons[i].className=buttons[i].className.replace(/\bon\b/g,'');}
+    var active=document.querySelector('nav button[data-page="'+id+'"]');
+    if(active){active.className+=' on';}
+  }
+  var nav=document.querySelectorAll('nav button'), i;
+  for(i=0;i<nav.length;i++){
+    nav[i].removeAttribute('onclick');
+    nav[i].setAttribute('data-page',['drive','audio','today','more'][i]);
+    nav[i].onclick=function(){showPage(this.getAttribute('data-page'));};
+  }
+  window.showPage=showPage;
+  var defs=[
+    ['v10','V10 / EXOTIC','REAL SAMPLE / 8,500 RPM'],
+    ['muscle','V8 / MUSCLE','DEEP / MECHANICAL'],
+    ['diesel','DIESEL HD / TURBO','TRUCK / 2,600 RPM'],
+    ['jet','JET / AFTERBURNER','TURBINE / THRUST'],
+    ['future','EV-X / SYNTHETIC','SYNTHETIC / FUTURE']
+  ];
+  var hosts=[document.getElementById('modes'),document.getElementById('driveModes')];
+  function choose(key,name){
+    document.getElementById('character').innerHTML=name;
+    document.getElementById('audioName').innerHTML=name;
+    var ms=document.getElementsByClassName('mode'),j;
+    for(j=0;j<ms.length;j++){ms[j].className=ms[j].className.replace(/\bon\b/g,'');if(ms[j].getAttribute('data-k')===key){ms[j].className+=' on';}}
+    try{localStorage.setItem('dlmode',key);}catch(e){}
+  }
+  for(var h=0;h<hosts.length;h++){
+    if(!hosts[h])continue;
+    hosts[h].innerHTML='';
+    for(i=0;i<defs.length;i++){
+      (function(d){
+        var x=document.createElement('button');
+        x.type='button';x.className='mode';x.setAttribute('data-k',d[0]);
+        x.innerHTML='<strong>'+d[1]+'</strong><span>'+d[2]+'</span>';
+        x.onclick=function(){choose(d[0],d[1]);};
+        hosts[h].appendChild(x);
+      })(defs[i]);
+    }
+  }
+  choose('v10','V10 / EXOTIC');
+  if(status){status.innerHTML='<b>●</b> CONTROLS READY — SAFE MODE';}
+  window.addEventListener('error',function(e){if(status){status.innerHTML='<b>●</b> CONTROLS READY / ENGINE ERROR';}});
+})();
 </script></body></html>
