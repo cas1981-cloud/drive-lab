@@ -151,77 +151,66 @@
 })();
 </script><script>
 (function(){
-  var gpsBtn=document.getElementById('gpsBtn'),simBtn=document.getElementById('simBtn'),gpsStat=document.getElementById('gpsStatus');
-  var speedEl=document.getElementById('speed'),gearEl=document.getElementById('gear'),rpmEl=document.getElementById('rpm'),loadEl=document.getElementById('load'),arc=document.getElementById('arc'),speedArc=document.getElementById('speedArc'),loadFill=document.getElementById('loadFill'),speedNeedle=document.getElementById('speedNeedle'),rpmNeedle=document.getElementById('rpmNeedle'),teleSpeed=document.getElementById('teleSpeed'),teleRpm=document.getElementById('teleRpm'),teleLoad=document.getElementById('teleLoad'),auxTorque=document.getElementById('auxTorque'),auxBoost=document.getElementById('auxBoost'),auxTemp=document.getElementById('auxTemp');
-  var mph=0,target=0,rpm=850,gear=1,load=0,lastMph=0,lastT=Date.now(),watchId=null,simTimer=null,simUp=true;
-  var maxByMode={v10:8500,muscle:6500,diesel:2600,jet:9000,future:10000};
-  function status(t){if(gpsStat)gpsStat.innerHTML=t;}
-  function gearFor(v){if(v<14)return 1;if(v<29)return 2;if(v<46)return 3;if(v<65)return 4;if(v<86)return 5;return 6;}
-  function idle(){return (window.driveMode==='diesel')?680:850;}
-  function maxRpm(){return maxByMode[window.driveMode||'v10']||8500;}
-  function rpmFor(v,g){
-    var mult=[0,205,132,94,70,54,43][g];
-    return Math.min(maxRpm(),idle()+v*mult*(.70+.30*load));
-  }
-  function audio(){
-    var a=window.driveAudio||{};
-    if(a.update){a.update({mode:window.driveMode||'v10',rpm:rpm,gear:gear,load:load,mph:mph});}
-  }
-  function render(){
-    if(speedEl)speedEl.innerHTML=Math.round(mph);
-    if(gearEl)gearEl.innerHTML=gear;
-    if(rpmEl)rpmEl.innerHTML=Math.round(rpm);
-    if(loadEl)loadEl.innerHTML=Math.round(load*100);
-    if(loadFill)loadFill.style.width=Math.round(load*100)+'%'; if(auxTorque)auxTorque.innerHTML=Math.round(load*520); if(auxBoost)auxBoost.innerHTML=(load*14.5).toFixed(1); if(auxTemp)auxTemp.innerHTML=Math.round(82+load*34); if(teleSpeed)teleSpeed.innerHTML=Math.round(mph)+' MPH'; if(teleRpm)teleRpm.innerHTML=Math.round(rpm); if(teleLoad)teleLoad.innerHTML=Math.round(load*100)+'%'; if(speedNeedle)speedNeedle.style.transform='rotate('+(135+Math.max(0,Math.min(1,mph/140))*270)+'deg)'; if(rpmNeedle){var np=Math.max(0,Math.min(1,(rpm-idle())/(maxRpm()-idle())));rpmNeedle.style.transform='rotate('+(135+np*270)+'deg)';}
-    if(speedArc){var sp=Math.max(0,Math.min(1,mph/140));speedArc.style.background='conic-gradient(from 225deg,#f4f6f8 0 '+(sp*270)+'deg,#282d33 '+(sp*270)+'deg 270deg,transparent 270deg)';}
-    if(arc){
-      var p=Math.max(0,Math.min(1,(rpm-idle())/(maxRpm()-idle())));
-      arc.style.background='conic-gradient(from 135deg,var(--r) 0 '+(p*270)+'deg,#282b30 '+(p*270)+'deg 270deg,transparent 270deg)';
-    }
-    audio();
-  }
-  function tick(){
-    if(!simTimer)mph+=(target-mph)*.22;
-    gear=gearFor(mph);
-    var wanted=rpmFor(mph,gear);
-    rpm+=(wanted-rpm)*.24;
-    render();
-  }
-  setInterval(tick,100);
-  function liveGPS(){
-    if(!navigator.geolocation){status('GPS NOT SUPPORTED');return;}
-    if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;target=0;status('GPS OFF');gpsBtn.innerHTML='ENABLE LIVE GPS';return;}
-    status('REQUESTING LOCATION PERMISSION');
-    gpsBtn.innerHTML='DISABLE LIVE GPS';
-    watchId=navigator.geolocation.watchPosition(function(p){
-      var now=Date.now(),raw=(p.coords.speed===null||p.coords.speed<0)?null:p.coords.speed*2.236936;
-      if(raw===null){status('GPS ACTIVE — WAITING FOR SPEED');return;}
-      var dt=Math.max(.25,(now-lastT)/1000),acc=(raw-lastMph)/dt;
-      load=Math.max(.06,Math.min(1,.18+acc/8));
-      if(acc<-.8)load=.04;
-      target=Math.max(0,raw);lastMph=raw;lastT=now;
-      var accText=(typeof p.coords.accuracy==='number')?' ±'+Math.round(p.coords.accuracy*3.28084)+' FT':'';
-      status('LIVE GPS — '+Math.round(raw)+' MPH'+accText);
-    },function(e){
-      status('GPS ERROR — '+e.message);
-      gpsBtn.innerHTML='ENABLE LIVE GPS';watchId=null;
-    },{enableHighAccuracy:true,maximumAge:250,timeout:12000});
-  }
-  function sim(){
-    if(simTimer){clearInterval(simTimer);simTimer=null;mph=0;target=0;load=0;simBtn.innerHTML='START PARKED SIM';status(watchId!==null?'LIVE GPS':'GPS OFF');render();return;}
-    if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;gpsBtn.innerHTML='ENABLE LIVE GPS';}
-    simUp=true;mph=0;load=.75;status('PARKED SIM ACTIVE');simBtn.innerHTML='STOP PARKED SIM';
-    simTimer=setInterval(function(){
-      mph+=simUp?1.15:-1.35;
-      if(mph>=92){mph=92;simUp=false;}
-      if(mph<=0){mph=0;simUp=true;}
-      load=simUp ? .88 : .04;
-      gear=gearFor(mph);rpm=rpmFor(mph,gear);render();
-    },100);
-  }
-  if(gpsBtn)gpsBtn.onclick=liveGPS;
-  if(simBtn)simBtn.onclick=sim;
-  status('GPS MODULE READY');
-  render();
+ var gpsBtn=document.getElementById('gpsBtn'),simBtn=document.getElementById('simBtn'),gpsStat=document.getElementById('gpsStatus');
+ var speedEl=document.getElementById('speed'),gearEl=document.getElementById('gear'),rpmEl=document.getElementById('rpm'),loadEl=document.getElementById('load'),arc=document.getElementById('arc'),speedArc=document.getElementById('speedArc'),loadFill=document.getElementById('loadFill'),speedNeedle=document.getElementById('speedNeedle'),rpmNeedle=document.getElementById('rpmNeedle'),teleSpeed=document.getElementById('teleSpeed'),teleRpm=document.getElementById('teleRpm'),teleLoad=document.getElementById('teleLoad'),auxTorque=document.getElementById('auxTorque'),auxBoost=document.getElementById('auxBoost'),auxTemp=document.getElementById('auxTemp');
+ var mph=0,target=0,rpm=850,gear=1,load=0,throttle=0,filteredAcc=0,lastRaw=0,lastT=Date.now(),watchId=null,simTimer=null,simUp=true,lastShift=0;
+ var cfg={v10:{idle:850,max:8500,final:1.00},muscle:{idle:750,max:6500,final:.82},diesel:{idle:680,max:2600,final:.34},jet:{idle:800,max:9000,final:1.05},future:{idle:0,max:10000,final:1.15}};
+ var ratios=[0,3.05,2.05,1.48,1.16,.94,.78];
+ function C(){return cfg[window.driveMode||'v10']||cfg.v10;} function idle(){return C().idle;} function maxRpm(){return C().max;}
+ function status(t){if(gpsStat)gpsStat.innerHTML=t;}
+ function roadRpm(v,g){var c=C();return Math.max(c.idle,Math.min(c.max,c.idle+v*ratios[g]*23*c.final));}
+ function chooseGear(){
+  var now=Date.now(),c=C();if(now-lastShift<420)return;
+  var frac=(rpm-c.idle)/(c.max-c.idle);
+  if(throttle>.28&&frac>.82&&gear<6){gear++;lastShift=now;rpm=Math.max(c.idle,roadRpm(mph,gear));return;}
+  if((frac<.28||throttle<.08)&&gear>1&&roadRpm(mph,gear-1)<c.max*.72){gear--;lastShift=now;rpm=Math.max(c.idle,roadRpm(mph,gear));}
+ }
+ function audio(){var x=window.driveAudio||{};if(x.update)x.update({mode:window.driveMode||'v10',rpm:rpm,gear:gear,load:load,throttle:throttle,accel:filteredAcc,mph:mph});}
+ function render(){
+  if(speedEl)speedEl.innerHTML=Math.round(mph);if(gearEl)gearEl.innerHTML=gear;if(rpmEl)rpmEl.innerHTML=Math.round(rpm);if(loadEl)loadEl.innerHTML=Math.round(load*100);
+  if(loadFill)loadFill.style.width=Math.round(load*100)+'%';if(auxTorque)auxTorque.innerHTML=Math.round(load*520);if(auxBoost)auxBoost.innerHTML=(load*14.5).toFixed(1);if(auxTemp)auxTemp.innerHTML=Math.round(82+load*34);
+  if(teleSpeed)teleSpeed.innerHTML=Math.round(mph)+' MPH';if(teleRpm)teleRpm.innerHTML=Math.round(rpm);if(teleLoad)teleLoad.innerHTML=Math.round(load*100)+'%';
+  if(speedNeedle)speedNeedle.style.transform='rotate('+(135+Math.max(0,Math.min(1,mph/140))*270)+'deg)';
+  if(rpmNeedle){var np=Math.max(0,Math.min(1,(rpm-idle())/Math.max(1,maxRpm()-idle())));rpmNeedle.style.transform='rotate('+(135+np*270)+'deg)';}
+  if(speedArc){var sp=Math.max(0,Math.min(1,mph/140));speedArc.style.background='conic-gradient(from 225deg,#f4f6f8 0 '+(sp*270)+'deg,#282d33 '+(sp*270)+'deg 270deg,transparent 270deg)';}
+  if(arc){var p=Math.max(0,Math.min(1,(rpm-idle())/Math.max(1,maxRpm()-idle())));arc.style.background='conic-gradient(from 135deg,var(--r) 0 '+(p*270)+'deg,#282b30 '+(p*270)+'deg 270deg,transparent 270deg)';}
+  audio();
+ }
+ function physics(){
+  if(!simTimer)mph+=(target-mph)*.28;
+  var c=C(),road=roadRpm(mph,gear);
+  var freeRev=c.idle+(c.max-c.idle)*(.10+throttle*.90);
+  var wanted=Math.max(road,throttle>.12?Math.min(c.max,road+(freeRev-road)*(.16+throttle*.22)):road);
+  if(throttle<.07)wanted=Math.max(c.idle,road*.98);
+  rpm+=(wanted-rpm)*(throttle>.2 ? .32 : .22);
+  chooseGear();load+=(throttle-load)*.34;render();
+ }
+ setInterval(physics,80);
+ function ingestSpeed(raw,dt){
+  var instant=(raw-lastRaw)/Math.max(.25,dt);instant=Math.max(-8,Math.min(8,instant));filteredAcc=filteredAcc*.68+instant*.32;
+  var desired;if(filteredAcc>.12)desired=Math.min(1,.16+filteredAcc/4.2);else if(filteredAcc<-.18)desired=0;else desired=(raw>3 ? .07 : 0);
+  throttle+= (desired-throttle)*(desired>throttle ? .52 : .30);if(Math.abs(filteredAcc)<.08&&raw>3)throttle*=.94;
+  target=Math.max(0,raw);lastRaw=raw;
+ }
+ function liveGPS(){
+  if(!navigator.geolocation){status('GPS NOT SUPPORTED');return;}
+  if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;target=0;throttle=0;status('GPS OFF');gpsBtn.innerHTML='ENABLE LIVE GPS';return;}
+  status('REQUESTING LOCATION PERMISSION');gpsBtn.innerHTML='DISABLE LIVE GPS';lastT=Date.now();lastRaw=0;gear=1;
+  watchId=navigator.geolocation.watchPosition(function(p){
+   var now=Date.now(),raw=(p.coords.speed===null||p.coords.speed<0)?null:p.coords.speed*2.236936;if(raw===null){status('GPS ACTIVE — WAITING FOR SPEED');return;}
+   var dt=(now-lastT)/1000;ingestSpeed(raw,dt);lastT=now;var ac=(typeof p.coords.accuracy==='number')?' ±'+Math.round(p.coords.accuracy*3.28084)+' FT':'';
+   status('LIVE GPS — '+Math.round(raw)+' MPH • THROTTLE '+Math.round(throttle*100)+'%'+ac);
+  },function(e){status('GPS ERROR — '+e.message);gpsBtn.innerHTML='ENABLE LIVE GPS';watchId=null;},{enableHighAccuracy:true,maximumAge:150,timeout:12000});
+ }
+ function sim(){
+  if(simTimer){clearInterval(simTimer);simTimer=null;mph=0;target=0;throttle=0;load=0;gear=1;simBtn.innerHTML='START PARKED SIM';status(watchId!==null?'LIVE GPS':'GPS OFF');render();return;}
+  if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;gpsBtn.innerHTML='ENABLE LIVE GPS';}
+  simUp=true;mph=0;target=0;gear=1;throttle=.82;status('PARKED SIM ACTIVE');simBtn.innerHTML='STOP PARKED SIM';
+  simTimer=setInterval(function(){
+   var prev=mph;mph+=simUp?(0.45+throttle*.72):-1.05;if(mph>=95){mph=95;simUp=false;}if(mph<=0){mph=0;simUp=true;gear=1;}
+   filteredAcc=(mph-prev)/.1;throttle=simUp ? .86 : 0;load+=(throttle-load)*.38;var c=C(),road=roadRpm(mph,gear),wanted=Math.max(road,c.idle+(c.max-c.idle)*throttle*.82);rpm+=(Math.min(c.max,wanted)-rpm)*.34;chooseGear();render();
+  },100);
+ }
+ if(gpsBtn)gpsBtn.onclick=liveGPS;if(simBtn)simBtn.onclick=sim;status('GPS THROTTLE MODEL READY');render();
 })();
 </script></body></html>
